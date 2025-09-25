@@ -1,0 +1,21 @@
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# Data files
+data
+
+# Logs
+log
+*.out
+
+# Results
+results
+
+# Temporary files
+*~
+*.tmp
+.DS_Store
