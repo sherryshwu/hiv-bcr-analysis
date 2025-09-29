@@ -34,7 +34,7 @@ STEP=0
 
 # Step 1: Merge datasets
 printf " %2d: %-*s $(date +'%H:%M %D')\n" $((++STEP)) 30 "Merging BCR datasets"
-Rscript scripts/01_data_preprocessing/merge_bcr_datasets.R --outdir $procdir
+Rscript scripts/01_data_preprocessing/merge_bcr_datasets.R --outdir $procdir/03_combined_datasets
 
 # Check if merge was successful
 if [[ ! -f "$procdir/all_combined_bcr_data.csv" ]]; then
