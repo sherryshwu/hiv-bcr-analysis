@@ -9,46 +9,55 @@ suppressMessages({
 
 option_list <- list(
   make_option(c("-a", "--all_data"), type = "character",
-              default = "data/processed/03_combined_datasets/all_combined_bcr_data.csv",
+              default = "data/processed/03_combined_datasets/all_combined_data.csv",
               help = "Input combined BCR data CSV [default= %default]"),
   make_option(c("-t", "--threshold_file"), type = "character",
               default = "results/clustering_threshold/threshold.csv",
               help = "Input threshold CSV from SHazaM [default= %default]"),
   make_option(c("-o", "--outdir"), type = "character",
-              default = "results/clonal_analysis",
+              default = "results/clustering_scoper",
               help = "Output directory [default= %default]"),
   make_option(c("-n", "--nproc"), type = "integer", default = 4,
-              help = "Number of processors [default= %default]")
+              help = "Number of processors [default= %default]"),
+  make_option(c("-g", "--germline_dir"), type = "character",
+              default = "/dartfs/rc/home/5/f0070d5/share/germlines/imgt/human/vdj",
+              help = "IMGT germline reference directory [default= %default]")
 )
 
 opt <- parse_args(OptionParser(option_list = option_list))
 dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
 
 # Load the pre-computed threshold
-threshold_df <- read_csv(opt$threshold_file, show_col_types = FALSE)
+threshold_df <- tryCatch({
+  read_csv(opt$threshold_file, show_col_types = FALSE)
+}, error = function(e) {
+  stop("Failed to load threshold file: ", opt$threshold_file, "\n", e$message)
+})
+
 threshold <- threshold_df$threshold[1]
 cat("\n=== SCOPER APPROACH ===\n")
 cat("Using threshold:", round(threshold, 4), "for Scoper analysis\n")
 
 # Load all BCR data for Scoper
 cat("Loading all BCR data for Scoper...\n")
+all_data <- tryCatch({
+  read_csv(opt$all_data, show_col_types = FALSE)
+}, error = function(e) {
+  stop("Failed to load data file: ", opt$all_data, "\n", e$message)
+})
 
-# Prepare data for Scoper (including light chains)
-scoper_data <- read_csv(opt$all_data, show_col_types = FALSE) %>%
+# Prepare data for clustering
+scoper_data <- all_data %>%
   filter(!is.na(cell_id)) %>%
-  distinct() %>%
   filter(productive == TRUE) %>%
   filter(!is.na(v_call), !is.na(j_call), !is.na(junction)) %>%
   filter(locus %in% c("IGH", "IGK", "IGL")) %>%
-  select(-clone_id) %>%
   distinct() %>%
   # Remove cells with multiple heavy chains
   group_by(cell_id) %>%
   mutate(n_heavy = sum(locus == "IGH")) %>%
   filter(n_heavy == 1) %>%
-  mutate(cell_id_unique = ifelse(n() > 1, paste0(cell_id, "_", row_number()), cell_id)) %>%
-  ungroup() %>%
-  select(-n_heavy)
+  mutate(clonal_family_original = clonal_family)
 
 # Count and report non-unique cell_ids
 n_non_unique_cells <- scoper_data %>%
@@ -72,24 +81,29 @@ cat("Total cells:", nrow(final_summary), "\n")
 cat("Heavy chains:", sum(final_summary$n_heavy), "\n")
 cat("Light chains:", sum(final_summary$n_light), "\n")
 
-## Test both split_light approaches
-split_light_options <- c(FALSE, TRUE)
+# Load IMGT references
+references <- tryCatch({
+  readIMGT(dir = opt$germline_dir)
+}, error = function(e) {
+  stop("Failed to load IMGT references: ", e$message)
+})
 
-for (split_light in split_light_options) {
+# Run Scoper with both split_light settings
+for (split_light in c(FALSE, TRUE)) {
+  suffix <- ifelse(split_light, "split_light", "no_split_light")
   cat("\n--- Running hierarchicalClones with split_light =", split_light, "---\n")
+
   start_time <- Sys.time()
+
   # Print the timestamp
   cat("hierarchicalClones (split_light =", split_light, ") started at:", as.character(start_time), "\n")
-
-  suffix <- ifelse(split_light, "split_light", "no_split_light")
 
   # Run hierarchical clones
   clone_results <- hierarchicalClones(
     scoper_data,
     threshold = threshold,
-    only_heavy = TRUE,
     split_light = split_light,
-    cell_id = "cell_id_unique",
+    cell_id = "cell_id",
     summarize_clones = FALSE,
     nproc = opt$nproc
   )
@@ -108,8 +122,8 @@ for (split_light in split_light_options) {
     group_by(clone_id) %>%
     summarise(
       clone_size = n(),
-      datasets = paste(unique(data_source), collapse = ","),
-      n_datasets = length(unique(data_source)),
+      datasets = paste(unique(source), collapse = ","),
+      n_datasets = length(unique(source)),
       heavy_chains = sum(locus == "IGH"),
       light_chains = sum(locus %in% c("IGK", "IGL")),
       .groups = "drop"
@@ -138,10 +152,18 @@ for (split_light in split_light_options) {
       stop("Sequence IDs are not unique after transformation!")
     }
 
+    # Resolve light chains only when split_light = TRUE
+    if (split_light == TRUE) {
+      cat("Resolving light chains with resolveLightChains() started at:", as.character(Sys.time()), "\n")
+      clone_results_for_germlines <- resolveLightChains(clone_results_for_germlines)
+      cat("Resolving light chains with resolveLightChains() ended at:", as.character(Sys.time()), "\n")
+    }
+
     germlines <- createGermlines(
       clone_results_for_germlines,
-      references = "~/share/germlines/imgt/human/vdj/",
-      nproc = opt$nproc
+      references = references,
+      nproc = opt$nproc,
+      clone = "clone_id"
     )
     write_csv(germlines, file.path(opt$outdir, paste0("scoper_germlines_", suffix, ".csv")))
   }, error = function(e) {
@@ -150,7 +172,6 @@ for (split_light in split_light_options) {
 }
 
 cat("\nAnalysis complete! Results in:", opt$outdir, "\n")
-
 
 # See if there's split in clones in split_light=false
 # how many light chains / how many cells have a light chain -> should we build tree with light chain

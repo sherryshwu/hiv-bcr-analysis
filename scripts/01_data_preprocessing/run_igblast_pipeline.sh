@@ -3,7 +3,7 @@
 #SBATCH --mem=8g
 #SBATCH --mail-type=END,FAIL
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
+#SBATCH --ntasks-per-node=8
 #SBATCH --account=hoehnlab
 #SBATCH --time=4:00:00
 #SBATCH --nodelist=t01

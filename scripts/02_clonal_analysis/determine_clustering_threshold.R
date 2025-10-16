@@ -20,7 +20,8 @@ option_list <- list(
 opt <- parse_args(OptionParser(option_list = option_list))
 dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
 
-cat("\n=== THRESHOLD DETERMINATION (SHazaM) ===\n")
+cat("\n=== Clustering Threshold Determination ===\n")
+
 # Load heavy chain data for threshold calculation
 cat("Loading heavy chain data for threshold calculation...\n")
 heavy_data <- read_tsv(opt$heavy_data, show_col_types = FALSE)
@@ -38,22 +39,21 @@ nn <- shazam::distToNearest(
   normalize = "len",
   nproc = opt$nproc
 )
-
-d <- nn$dist_nearest[is.finite(nn$dist_nearest)]
-threshold <- shazam::findThreshold(d, method = "density")@threshold
+distances <- nn$dist_nearest[is.finite(nn$dist_nearest)]
+threshold <- shazam::findThreshold(distances, method = "density")@threshold
 
 cat("Computed threshold:", round(threshold, 4), "\n")
 
 # Save threshold plot
 pdf(file.path(opt$outdir, "threshold_density_plot.pdf"))
-plot(density(d), main = "NN distance density (SHazaM)")
+plot(density(distances), main = "NN distance density (SHazaM)")
 abline(v = threshold, lty = 2, col = "red")
 legend("topright", legend = paste("Threshold =", round(threshold, 4)),
        col = "red", lty = 2)
 dev.off()
 
 # Save threshold and Change-O input files
-write.csv(data.frame(method = "shazam", threshold = threshold),
+write.csv(data.frame(method = "shazam_density", threshold = threshold),
           file.path(opt$outdir, "threshold.csv"), row.names = FALSE)
 
-cat("SHazaM analysis complete. Results in:", opt$outdir, "\n")
+cat("SHazaM analysis complete! Results saved to:", opt$outdir, "\n")
