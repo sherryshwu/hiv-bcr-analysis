@@ -116,7 +116,7 @@ for (split_light in c(FALSE, TRUE)) {
 
   # Save results with appropriate suffix
   write_csv(clone_results, file.path(opt$outdir, paste0("scoper_clones_", suffix, ".csv")))
-
+# clone_results_split=read_csv(file.path(opt$outdir, paste0("scoper_clones_", suffix, ".csv")))
   # Basic clone statistics
   clone_stats <- clone_results %>%
     group_by(clone_id) %>%
@@ -134,6 +134,8 @@ for (split_light in c(FALSE, TRUE)) {
 
   # Create germlines with Dowser
   cat("Creating germlines with Dowser (split_light =", split_light, ")...\n")
+  clone_id_value <- ifelse(split_light == TRUE, "clone_subgroup_id", "clone_id")
+
   tryCatch({
     # Clean data for createGermlines
     clone_results_for_germlines <- clone_results %>%
@@ -155,15 +157,17 @@ for (split_light in c(FALSE, TRUE)) {
     # Resolve light chains only when split_light = TRUE
     if (split_light == TRUE) {
       cat("Resolving light chains with resolveLightChains() started at:", as.character(Sys.time()), "\n")
-      clone_results_for_germlines <- resolveLightChains(clone_results_for_germlines)
+      clone_results_for_germlines <- resolveLightChains(clone_results_for_germlines, text_fields = NULL, num_fields = NULL, seq_fields = NULL)
       cat("Resolving light chains with resolveLightChains() ended at:", as.character(Sys.time()), "\n")
+      write_csv(clone_results_for_germlines, file.path(opt$outdir, paste0("resolved_scoper_germlines_", suffix, ".csv")))
     }
 
     germlines <- createGermlines(
       clone_results_for_germlines,
       references = references,
       nproc = opt$nproc,
-      clone = "clone_id"
+      clone = clone_id_value,
+      trim_lengths = TRUE
     )
     write_csv(germlines, file.path(opt$outdir, paste0("scoper_germlines_", suffix, ".csv")))
   }, error = function(e) {

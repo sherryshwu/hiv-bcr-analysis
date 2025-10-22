@@ -12,7 +12,9 @@ suppressMessages({
 
 option_list <- list(
   make_option(c("-o", "--outdir"), type = "character", default = "data/processed/combined_datasets",
-              help = "Output directory [default= %default]")
+              help = "Output directory [default= %default]"),
+  make_option(c("--use_igblast"), action = "store_true", default = FALSE,
+              help = "Use IgBLAST annotations for sorted/cultured data [default= %default]")
 )
 opt <- parse_args(OptionParser(option_list = option_list))
 dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
@@ -22,58 +24,11 @@ cat("Loading datasets...\n")
 bulk_data <- read.csv("data/raw/All_clones_Bulkcy16cy19_10xcy16_byFelipe_20250514New Susan Moir.csv")
 c02_data <- read.csv("data/raw/c02_g11_sequences/C02_like_C&S_H&L_Ken_071725_jj.csv")
 g11_data <- read.csv("data/raw/c02_g11_sequences/G11_like_C&S_H&L_Ken_071725_jj.csv")
-tenx_heavy <- read_tsv("data/processed/02_parsed_sequences/filtered_contig_Susan_Moir_heavy_parse-select.tsv")
-tenx_light <- read_tsv("data/processed/02_parsed_sequences/filtered_contig_Susan_Moir_light_parse-select.tsv")
+tenx_data <- read_tsv("data/processed/01_igblast_output/filtered_contig_Susan_Moir_db-pass.tsv")
 
 cat("=== BCR Dataset Integration Pipeline ===\n")
-# --------------------- Helpers ---------------------
-clean_sorted_cultured <- function(df) {
-  df %>%
-    # Preserve the original Source column with sort and culture info
-    rename(source = Source) %>%
-    mutate(source = case_when(
-      source == "PT30_culture" ~ "cultured",
-      source == "PT30_sorted cell" ~ "sorted",
-      TRUE ~ source
-    )) %>%
-    # Remove the Locus column and keep the standard locus column
-    dplyr::select(-any_of("Locus")) %>%
-    # Remove empty or typo strings in sequence_id and locus
-    filter(sequence_id != "", sequence_id != "sequence_id", locus != "locus") %>%
-    rename(clonal_family = Clonal.Family,
-           v_identity = v_identity_.percentage.,
-           j_identity = j_identity_.percentage.) %>%
-    # Step 1: Clean sequence_id and create prefix/suffix
-    dplyr::mutate(
-      sequence_id = str_remove(sequence_id, "_+$"),
-      prefix      = str_extract(sequence_id, "^[^_]+"),
-      suffix      = str_extract(sequence_id, "[^_]+$")
-    ) %>%
-    # Step 2: Use prefix/suffix to create new sequence_id and cell_id
-    dplyr::mutate(
-      sequence_id = paste(prefix, locus, suffix, sep = "_"),
-      cell_id = paste0(prefix, "_", suffix)
-    ) %>%
-    # Step 3: Remove "Homsap" prefix
-    dplyr::mutate(
-      v_call = getGene(v_call, first = FALSE, strip_d = FALSE),
-      d_call = getGene(d_call, first = FALSE, strip_d = FALSE),
-      j_call = getGene(j_call, first = FALSE, strip_d = FALSE)
-    ) %>%
-    dplyr::mutate(
-      time = "Y18",
-      v_identity = as.numeric(v_identity),
-      j_identity = as.numeric(j_identity),
-      consensus_count = NA_real_,
-      umi_count = NA_real_,
-      v_call_10x = NA_character_,
-      j_call_10x = NA_character_,
-      junction_10x = NA_character_,
-      junction_10x_aa = NA_character_,
-      c_call = NA_character_
-    )
-}
 
+# --------------------- Helpers ---------------------
 clean_data <- function(df, source_name = NULL) {
   tryCatch({
     # Tag source if needed
@@ -122,12 +77,129 @@ clean_data <- function(df, source_name = NULL) {
   })
 }
 
-# --------------------- Process datasets ---------------------
-# Prepare C02 and G11 data
-cat("Processing C02 and G11 data...\n")
-c02_clean <- c02_data %>% clean_sorted_cultured() %>% clean_data()
-g11_clean <- g11_data %>% clean_sorted_cultured() %>% clean_data()
+# --------------------- Load and process Sorted/Cultured Data ---------------------
+if (opt$use_igblast) {
+  cat("\n=== Using IgBLAST-annotated sorted/cultured data ===\n")
 
+  # Load IgBLAST annotations
+  igblast_db <- read_tsv("data/processed/01_igblast_output/sorted_cultured_db-pass.tsv")
+
+  # Load mapping file
+  mapping <- read_csv("data/processed/00_sorted_cultured_prep/sorted_cultured_mapping.csv")
+
+  # Remove columns from mapping provided by IgBLAST
+  igblast_cols_to_remove <- c(
+    "v_call", "d_call", "j_call", "c_call",
+    "sequence", "sequence_alignment", "germline_alignment",
+    "junction", "junction_aa", "junction_length",
+    "v_sequence_start", "v_sequence_end", "v_germline_start", "v_germline_end",
+    "d_sequence_start", "d_sequence_end", "d_germline_start", "d_germline_end",
+    "j_sequence_start", "j_sequence_end", "j_germline_start", "j_germline_end",
+    "v_score", "d_score", "j_score", "v_identity", "j_identity",
+    "v_support", "d_support", "j_support",
+    "np1_length", "np2_length", "locus", "productive", "rev_comp",
+    "stop_codon", "vj_in_frame", "complete_vdj"
+  )
+  mapping <- mapping %>% select(-any_of(igblast_cols_to_remove))
+
+  cat("Mapping columns after removing IgBLAST overlaps:", ncol(mapping), "\n")
+  cat("Columns kept from mapping:", paste(names(mapping), collapse = ", "), "\n")
+
+  # Merge IgBLAST results with original metadata
+  c02_g11_annotated <- igblast_db %>%
+    rename(igblast_id = sequence_id) %>%
+    left_join(mapping, by = "igblast_id") %>%
+    mutate(
+      # Restore original sequence_id
+      sequence_id = paste(sequence_id_original, locus, row_number(), sep = "_"),
+      prefix = str_extract(sequence_id_original, "^[^_]+"),
+      suffix = str_extract(sequence_id_original, "[^_]+$"),
+      # Create new sequence_id using IgBLAST locus
+      sequence_id = paste(prefix, locus, suffix, sep = "_"),
+      # Create cell_id
+      cell_id = paste0(prefix, "_", suffix),
+      # Set source
+      source = case_when(
+        Source == "PT30_culture" ~ "cultured",
+        Source == "PT30_sorted cell" ~ "sorted",
+        TRUE ~ Source
+      ),
+      # Add missing columns
+      time = "Y18",
+      clonal_family = NA_character_,
+      consensus_count = NA_real_,
+      umi_count = NA_real_,
+      v_call_10x = NA_character_,
+      j_call_10x = NA_character_,
+      junction_10x = NA_character_,
+      junction_10x_aa = NA_character_,
+      c_call = NA_character_
+    ) %>%
+    # Remove Homsap prefix from gene calls
+    mutate(
+      v_call = getGene(v_call, first = FALSE, strip_d = FALSE),
+      d_call = getGene(d_call, first = FALSE, strip_d = FALSE),
+      j_call = getGene(j_call, first = FALSE, strip_d = FALSE)
+    ) %>%
+    select(-igblast_id, -dataset, -prefix, -suffix, -Source)
+
+  cat("✓ Loaded IgBLAST-annotated data:", nrow(c02_g11_annotated), "sequences\n")
+  cat("  - Cultured:", sum(c02_g11_annotated$source == "cultured"), "\n")
+  cat("  - Sorted:", sum(c02_g11_annotated$source == "sorted"), "\n")
+  c02_g11_clean <- c02_g11_annotated %>% clean_data()
+
+} else {
+  cat("\n=== Using original sorted/cultured data (no IgBLAST) ===\n")
+  ## Sorted/cultured sequences may lack germline annotations
+  # Load original files
+  c02_data <- read.csv("data/raw/c02_g11_sequences/C02_like_C&S_H&L_Ken_071725_jj.csv")
+  g11_data <- read.csv("data/raw/c02_g11_sequences/G11_like_C&S_H&L_Ken_071725_jj.csv")
+
+  clean_sorted_cultured <- function(df) {
+    df %>%
+      rename(source = Source) %>%
+      mutate(source = case_when(
+        source == "PT30_culture" ~ "cultured",
+        source == "PT30_sorted cell" ~ "sorted",
+        TRUE ~ source
+      )) %>%
+      dplyr::select(-any_of("Locus")) %>%
+      filter(sequence_id != "", sequence_id != "sequence_id", locus != "locus") %>%
+      rename(clonal_family = Clonal.Family,
+             v_identity = v_identity_.percentage.,
+             j_identity = j_identity_.percentage.) %>%
+      dplyr::mutate(
+        sequence_id = str_remove(sequence_id, "_+$"),
+        prefix = str_extract(sequence_id, "^[^_]+"),
+        suffix = str_extract(sequence_id, "[^_]+$"),
+        sequence_id = paste(prefix, locus, suffix, sep = "_"),
+        cell_id = paste0(prefix, "_", suffix)
+      ) %>%
+      dplyr::mutate(
+        v_call = getGene(v_call, first = FALSE, strip_d = FALSE),
+        d_call = getGene(d_call, first = FALSE, strip_d = FALSE),
+        j_call = getGene(j_call, first = FALSE, strip_d = FALSE)
+      ) %>%
+      dplyr::mutate(
+        time = "Y18",
+        v_identity = as.numeric(v_identity),
+        j_identity = as.numeric(j_identity),
+        consensus_count = NA_real_,
+        umi_count = NA_real_,
+        v_call_10x = NA_character_,
+        j_call_10x = NA_character_,
+        junction_10x = NA_character_,
+        junction_10x_aa = NA_character_,
+        c_call = NA_character_
+      )
+  }
+  cat("Processing C02 and G11 data...\n")
+  c02_clean <- c02_data %>% clean_sorted_cultured() %>% clean_data()
+  g11_clean <- g11_data %>% clean_sorted_cultured() %>% clean_data()
+  c02_g11_clean <- bind_rows(c02_clean, g11_clean)
+}
+
+# --------------------- Process bulk and 10X datasets ---------------------
 # Prepare bulk data
 cat("Processing bulk data...\n")
 bulk_clean <- bulk_data %>%
@@ -139,17 +211,9 @@ bulk_clean <- bulk_data %>%
   )
 
 # Prepare 10X data
-cat("Processing 10X heavy chain data...\n")
-tenx_heavy_clean <- tenx_heavy %>%
-  clean_data("10x_heavy") %>%
-  mutate(
-    time = "Y16",
-    clonal_family = NA_character_
-  )
-
-cat("Processing 10X light chain data...\n")
-tenx_light_clean <- tenx_light %>%
-  clean_data("10x_light") %>%
+cat("Processing 10X data...\n")
+tenx_clean <- tenx_data %>%
+  clean_data("10x") %>%
   mutate(
     time = "Y16",
     clonal_family = NA_character_
@@ -157,7 +221,7 @@ tenx_light_clean <- tenx_light %>%
 
 # --------------------- Combine datasets ---------------------
 # Get all unique column names
-all_datasets <- list(bulk_clean, c02_clean, g11_clean, tenx_heavy_clean, tenx_light_clean)
+all_datasets <- list(bulk_clean, c02_g11_clean, tenx_clean)
 
 # Combine all datasets
 cat("Combining datasets...\n")
@@ -194,7 +258,7 @@ print(table(combined_clean$productive, useNA = "ifany"))
 
 # --------------------- Save files ---------------------
 # Save cell IDs from C02 and G11 data for downstream checks
-c02_g11_cell_ids <- unique(c(g11_clean$cell_id, c02_clean$cell_id))
+c02_g11_cell_ids <- unique(c02_g11_clean$cell_id)
 write_csv(data.frame(cell_id = c02_g11_cell_ids), file.path(opt$outdir, "c02_g11_cell_ids.csv"))
 
 # Save the combined dataset

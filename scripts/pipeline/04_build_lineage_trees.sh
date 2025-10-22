@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=bcr_downstream
+#SBATCH --job-name=build_lineage_trees
 #SBATCH --mem=16g
-#SBATCH --time=48:00:00
+#SBATCH --time=4:00:00
 #SBATCH --mail-type=END,FAIL
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
@@ -69,7 +69,7 @@ Rscript "$SCRIPTS_DIR/03_phylogenetic_analysis/build_trees.R" \
 # Step 6b: Build phylogenetic trees (light only)
 printf "\n%2d: %-40s %s\n" $((++STEP)) "Building phylogenetic trees (light)" "$(date +'%H:%M %D')"
 Rscript "$SCRIPTS_DIR/03_phylogenetic_analysis/build_trees.R" \
-  --input "$CSV_NO_SPLIT" \
+  --input "$CSV_SPLIT" \
   --outdir "$TREE_DIR" \
   --min_size 3 \
   --partition light_only \

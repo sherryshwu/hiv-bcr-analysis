@@ -29,36 +29,26 @@ GERMLINE_DB="$HOME/share/germlines/imgt/human/vdj"
 mkdir -p "$RESULTS_DIR" "$LOG_DIR"
 
 # Setup logging
-PIPELINE_LOG="$LOG_DIR/pipeline_$(date +%Y%m%d_%H%M%S).log"
-exec > >(tee -a "$PIPELINE_LOG") 2>&1
+PIPELINE_LOG="$LOG_DIR/03_clonal_clustering.log"
+exec > >(tee "$PIPELINE_LOG") 2>&1
 
 cd "$PROJECT_DIR"
 
-echo "=== BCR Analysis Full Pipeline at $(date) ==="
+echo "=== BCR Analysis Pipeline at $(date) ==="
 
 STEP=0
 
-# Step 1: Merge datasets
-printf "\n%2d: %-40s %s\n" $((++STEP)) "Merging BCR datasets" "$(date +'%H:%M %D')"
-Rscript "$SCRIPTS_DIR/01_data_preprocessing/merge_bcr_datasets.R" \
-  --outdir "$PROCESSED_DIR/03_combined_datasets"
-
-# Check if merge was successful
 COMBINED_DATA="$PROCESSED_DIR/03_combined_datasets/all_combined_data.csv"
 COMBINED_HEAVY_CHAIN_DATA="$PROCESSED_DIR/03_combined_datasets/all_combined_heavy_chain_data.tsv"
-if [[ ! -f "$COMBINED_DATA" ]]; then
-    echo "ERROR: Dataset merging failed!"
-    exit 1
-fi
 
-# Step 2: Determine threshold and prepare Change-O input
+# Step 1: Determine threshold and prepare Change-O input
 printf "\n%2d: %-40s %s\n" $((++STEP)) "Computing clustering threshold" "$(date +'%H:%M %D')"
 Rscript "$SCRIPTS_DIR/02_clonal_analysis/determine_clustering_threshold.R" \
     --heavy_data "$COMBINED_HEAVY_CHAIN_DATA" \
     --outdir "$RESULTS_DIR/clustering_threshold" \
     --nproc 8
 
-# Step 3: Run Change-O DefineClones if threshold was found
+# Step 2: Run Change-O DefineClones if threshold was found
 THRESHOLD_FILE=$RESULTS_DIR/clustering_threshold/threshold.csv
 
 if [[ -f "$THRESHOLD_FILE" ]]; then
@@ -91,7 +81,7 @@ else
     echo "Warning: No Change-O threshold found, skipping DefineClones"
 fi
 
-# Step 4: Run Scoper clonal analysis
+# Step 3: Run Scoper clonal analysis
 SCOPER_DIR="$RESULTS_DIR/clustering_scoper"
 
 printf " %2d: %-*s $(date +'%H:%M %D')\n" $((++STEP)) 30 "Scoper clonal analysis"
@@ -104,6 +94,5 @@ Rscript scripts/02_clonal_analysis/run_scoper_clonal_clustering.R \
 
 echo "=== Pipeline Part I Complete at $(date) ==="
 echo "Results saved to:"
-echo "  - $CHANGEO_DIR"
 echo "  - $SCOPER_DIR"
 echo "Proceeding to downstream analysis..."

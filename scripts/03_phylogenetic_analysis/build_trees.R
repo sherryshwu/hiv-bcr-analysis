@@ -11,7 +11,7 @@ suppressMessages({
 # ============ COMMAND LINE OPTIONS ============
 option_list <- list(
   make_option(c("-i", "--input"), type = "character",
-              default = "results/clone_analysis/hl_for_kept_cells_no_split_light.csv",
+              default = "results/clone_analysis/hl_for_kept_cells_split_light.csv",
               help = "CSV containing sequences to build trees from (e.g., hl_for_kept_cells_* .csv)"),
   make_option(c("-o", "--outdir"), type = "character",
               default = "results/phylogenetic_trees",
