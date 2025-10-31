@@ -135,12 +135,6 @@ if (opt$use_igblast) {
       junction_10x_aa = NA_character_,
       c_call = NA_character_
     ) %>%
-    # Remove Homsap prefix from gene calls
-    mutate(
-      v_call = getGene(v_call, first = FALSE, strip_d = FALSE),
-      d_call = getGene(d_call, first = FALSE, strip_d = FALSE),
-      j_call = getGene(j_call, first = FALSE, strip_d = FALSE)
-    ) %>%
     select(-igblast_id, -dataset, -prefix, -suffix, -Source)
 
   cat("✓ Loaded IgBLAST-annotated data:", nrow(c02_g11_annotated), "sequences\n")

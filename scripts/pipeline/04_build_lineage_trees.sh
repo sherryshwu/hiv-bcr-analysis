@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=build_lineage_trees
 #SBATCH --mem=16g
-#SBATCH --time=4:00:00
+#SBATCH --time=12:00:00
 #SBATCH --mail-type=END,FAIL
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=8
@@ -23,8 +23,8 @@ LOG_DIR="$PROJECT_DIR/log"
 SCRIPTS_DIR="$PROJECT_DIR/scripts"
 
 # Setup logging
-PIPELINE_LOG="$LOG_DIR/downstream_pipeline_$(date +%Y%m%d_%H%M%S).log"
-exec > >(tee -a "$PIPELINE_LOG") 2>&1
+PIPELINE_LOG="$LOG_DIR/04_build_trees.log"
+exec > >(tee "$PIPELINE_LOG") 2>&1
 
 cd "$PROJECT_DIR"
 
@@ -45,8 +45,8 @@ Rscript "$SCRIPTS_DIR/02_clonal_analysis/compare_clone_splitting_analysis.R" \
   --outdir "$ANALYSIS_DIR"
 
 # Expected outputs 
-CSV_NO_SPLIT="$ANALYSIS_DIR/hl_for_kept_cells_no_split_light.csv"
-CSV_SPLIT="$ANALYSIS_DIR/hl_for_kept_cells_split_light.csv"
+CSV_NO_SPLIT="$ANALYSIS_DIR/hl_for_kept_clones_no_split_light.csv"
+CSV_SPLIT="$ANALYSIS_DIR/hl_for_kept_clones_split_light.csv"
 
 # Verify required files exist
 echo "Checking for required input files..."

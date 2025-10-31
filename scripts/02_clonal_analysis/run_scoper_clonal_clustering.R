@@ -81,6 +81,39 @@ cat("Total cells:", nrow(final_summary), "\n")
 cat("Heavy chains:", sum(final_summary$n_heavy), "\n")
 cat("Light chains:", sum(final_summary$n_light), "\n")
 
+cat("\n=== Adding default alleles to gene calls ===\n")
+
+# Function to add *01 allele if missing
+add_default_allele <- function(gene_call) {
+  if (is.na(gene_call) || gene_call == "") {
+    return(gene_call)
+  }
+
+  # If already has allele (contains *), return as-is
+  if (grepl("\\*", gene_call)) {
+    return(gene_call)
+  }
+
+  # Add *01 as default allele
+  return(paste0(gene_call, "*01"))
+}
+
+cat("Before adding alleles:\n")
+cat("Sample V calls:", paste(head(unique(scoper_data[scoper_data$source %in% c("sorted", "cultured"), ]$v_call), 5), collapse = ", "), "\n")
+cat("Sample J calls:", paste(head(unique(scoper_data[scoper_data$source %in% c("sorted", "cultured"), ]$j_call), 5), collapse = ", "), "\n")
+
+# Add alleles
+scoper_data <- scoper_data %>%
+  mutate(
+    v_call = sapply(v_call, add_default_allele),
+    d_call = sapply(d_call, add_default_allele),
+    j_call = sapply(j_call, add_default_allele)
+  )
+
+cat("\nAfter adding alleles:\n")
+cat("Sample V calls:", paste(head(unique(scoper_data[scoper_data$source %in% c("sorted", "cultured"), ]$v_call), 5), collapse = ", "), "\n")
+cat("Sample J calls:", paste(head(unique(scoper_data[scoper_data$source %in% c("sorted", "cultured"), ]$j_call), 5), collapse = ", "), "\n")
+
 # Load IMGT references
 references <- tryCatch({
   readIMGT(dir = opt$germline_dir)
@@ -116,7 +149,7 @@ for (split_light in c(FALSE, TRUE)) {
 
   # Save results with appropriate suffix
   write_csv(clone_results, file.path(opt$outdir, paste0("scoper_clones_", suffix, ".csv")))
-# clone_results_split=read_csv(file.path(opt$outdir, paste0("scoper_clones_", suffix, ".csv")))
+# clone_results <- read_csv(file.path(opt$outdir, paste0("scoper_clones_", suffix, ".csv")))
   # Basic clone statistics
   clone_stats <- clone_results %>%
     group_by(clone_id) %>%
@@ -138,7 +171,7 @@ for (split_light in c(FALSE, TRUE)) {
 
   tryCatch({
     # Clean data for createGermlines
-    clone_results_for_germlines <- clone_results %>%
+    clone_results <- clone_results %>%
       # Remove NA for clone_id
       filter(!is.na(clone_id)) %>%
       group_by(clone_id) %>%
@@ -150,20 +183,20 @@ for (split_light in c(FALSE, TRUE)) {
       ungroup()
 
     # Verify uniqueness
-    if (any(duplicated(clone_results_for_germlines$sequence_id))) {
+    if (any(duplicated(clone_results$sequence_id))) {
       stop("Sequence IDs are not unique after transformation!")
     }
 
     # Resolve light chains only when split_light = TRUE
     if (split_light == TRUE) {
       cat("Resolving light chains with resolveLightChains() started at:", as.character(Sys.time()), "\n")
-      clone_results_for_germlines <- resolveLightChains(clone_results_for_germlines, text_fields = NULL, num_fields = NULL, seq_fields = NULL)
+      clone_results <- resolveLightChains(clone_results)
       cat("Resolving light chains with resolveLightChains() ended at:", as.character(Sys.time()), "\n")
-      write_csv(clone_results_for_germlines, file.path(opt$outdir, paste0("resolved_scoper_germlines_", suffix, ".csv")))
+      write_csv(clone_results, file.path(opt$outdir, paste0("resolved_scoper_clones_", suffix, ".csv")))
     }
 
     germlines <- createGermlines(
-      clone_results_for_germlines,
+      clone_results,
       references = references,
       nproc = opt$nproc,
       clone = clone_id_value,

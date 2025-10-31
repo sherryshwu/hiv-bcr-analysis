@@ -107,56 +107,55 @@ print(splitting_summary, width = Inf)
 # Which clones are sorted cells assigned to?
 cat("\n=== SORTED CELL CLONE ASSIGNMENTS ===\n")
 extract_sorted_clones <- function(df, mode_label, outdir = "results/clone_analysis") {
-  # Find heavy chain cells in cultured and sorted samples
+  # Find heavy chain clones in cultured and sorted samples
   heavy_keep <- df %>%
     filter(source %in% c("cultured", "sorted"), locus == "IGH")
 
-  # Extract cultured and sorted cell IDs
-  targeted_cell_ids <- heavy_keep %>% distinct(cell_id)
+  # Extract cultured and sorted clone IDs
+  targeted_clone_ids <- heavy_keep %>% distinct(clone_id)
 
-  # Get BOTH heavy + light for those cells
-  hl_for_kept_cells <- df %>%
-    semi_join(targeted_cell_ids, by = "cell_id") %>%
-    filter(source %in% c("cultured", "sorted"),
-           locus %in% c("IGH", "IGK", "IGL"))
+  # Get BOTH heavy + light for those clones
+  hl_for_kept_clones <- df %>%
+    semi_join(targeted_clone_ids, by = "clone_id") %>%
+    filter(locus %in% c("IGH", "IGK", "IGL"))
 
   dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
-  write_csv(hl_for_kept_cells,
-            file.path(outdir, paste0("hl_for_kept_cells_", mode_label, ".csv")))
+  write_csv(hl_for_kept_clones,
+            file.path(outdir, paste0("hl_for_kept_clones_", mode_label, ".csv")))
 
-  cat("Saved: hl_for_kept_cells_", mode_label)
-  invisible(list(hl_for_kept_cells = hl_for_kept_cells,
-                 targeted_cell_ids = targeted_cell_ids))
+  cat("Saved: hl_for_kept_clones_", mode_label)
+  invisible(list(hl_for_kept_clones = hl_for_kept_clones,
+                 targeted_clone_ids = targeted_clone_ids))
 }
 
 # Extract HL inputs (no_split & split_light)
 res_no_split <- extract_sorted_clones(df = no_split_data, mode_label = "no_split_light")
 res_split <- extract_sorted_clones(df = split_data, mode_label = "split_light")
 
-# Extract cultured and sorted cell IDs
-targeted_cell_ids_split <- res_split$targeted_cell_ids %>% pull(cell_id)
-targeted_cell_ids_no_split <- res_no_split$targeted_cell_ids %>% pull(cell_id)
+# Extract cultured and sorted clone IDs
+targeted_clone_ids_split <- res_split$targeted_clone_ids %>% pull(clone_id)
+targeted_clone_ids_no_split <- res_no_split$targeted_clone_ids %>% pull(clone_id)
 
-cat("Sorted cells (C02 and G11) clone assignments (without split_light):\n")
-print(targeted_cell_ids_no_split)
-cat("Sorted cells (C02 and G11) clone assignments (with split_light):\n")
-print(targeted_cell_ids_split)
+cat("Sorted clones (C02 and G11) clone assignments (without split_light):\n")
+print(targeted_clone_ids_no_split)
+cat("Sorted clones (C02 and G11) clone assignments (with split_light):\n")
+print(targeted_clone_ids_split)
 
-cat("Number of sorted cells (split_light):", length(targeted_cell_ids_split), "\n")
-cat("Number of sorted cells (no split_light):", length(targeted_cell_ids_no_split), "\n")
+cat("Number of sorted clones (split_light):", length(targeted_clone_ids_no_split), "\n")
+cat("Number of sorted clones (no split_light):", length(targeted_clone_ids_split), "\n")
 
-# ============ SAVE SORTED CELL IDs FOR TREE BUILDING ============
-cat("\n=== SAVING CELL IDs FOR TREE BUILDING ===\n")
+# ============ SAVE SORTED CLONE IDs FOR TREE BUILDING ============
+cat("\n=== SAVING CLONE IDs FOR TREE BUILDING ===\n")
 
 # Save as simple text files
-writeLines(as.character(targeted_cell_ids_no_split),
-           file.path(opt$outdir, "targeted_cell_ids_no_split_light.txt"))
-writeLines(as.character(targeted_cell_ids_split),
-           file.path(opt$outdir, "targeted_cell_ids_split_light.txt"))
+writeLines(as.character(targeted_clone_ids_no_split),
+           file.path(opt$outdir, "targeted_clone_ids_no_split_light.txt"))
+writeLines(as.character(targeted_clone_ids_split),
+           file.path(opt$outdir, "targeted_clone_ids_split_light.txt"))
 
 # Save as CSV with metadata
-targeted_cells_no_split_info <- no_split_data %>%
-  filter(cell_id %in% targeted_cell_ids_no_split) %>%
+targeted_clones_no_split_info <- no_split_data %>%
+  filter(clone_id %in% targeted_clone_ids_no_split) %>%
   group_by(clone_id) %>%
   summarise(
     clone_size = n(),
@@ -168,8 +167,8 @@ targeted_cells_no_split_info <- no_split_data %>%
   ) %>%
   arrange(desc(clone_size))
 
-targeted_cells_split_info <- split_data %>%
-  filter(cell_id %in% targeted_cell_ids_split) %>%
+targeted_clones_split_info <- split_data %>%
+  filter(clone_id %in% targeted_clone_ids_split) %>%
   group_by(clone_id) %>%
   summarise(
     clone_size = n(),
@@ -181,15 +180,15 @@ targeted_cells_split_info <- split_data %>%
   ) %>%
   arrange(desc(clone_size))
 
-write_csv(targeted_cells_no_split_info,
-          file.path(opt$outdir, "targeted_cells_no_split_info.csv"))
-write_csv(targeted_cells_split_info,
-          file.path(opt$outdir, "targeted_cells_split_info.csv"))
+write_csv(targeted_clones_no_split_info,
+          file.path(opt$outdir, "targeted_clones_no_split_info.csv"))
+write_csv(targeted_clones_split_info,
+          file.path(opt$outdir, "targeted_clones_split_info.csv"))
 
 cat("Saved clone IDs to:\n")
-cat("  -", file.path(opt$outdir, "targeted_cell_ids_no_split.txt"), "\n")
-cat("  -", file.path(opt$outdir, "targeted_cell_ids_split.txt"), "\n")
-cat("  -", file.path(opt$outdir, "targeted_cells_no_split_info.csv"), "\n")
-cat("  -", file.path(opt$outdir, "targeted_cells_split_info.csv"), "\n")
+cat("  -", file.path(opt$outdir, "targeted_clone_ids_no_split_light.txt"), "\n")
+cat("  -", file.path(opt$outdir, "targeted_clone_ids_split_light.txt"), "\n")
+cat("  -", file.path(opt$outdir, "targeted_clones_no_split_info.csv"), "\n")
+cat("  -", file.path(opt$outdir, "targeted_clones_split_info.csv"), "\n")
 
 cat("\n=== ANALYSIS COMPLETE ===\n")
