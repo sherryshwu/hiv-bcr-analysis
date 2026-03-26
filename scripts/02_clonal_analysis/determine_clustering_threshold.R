@@ -24,9 +24,15 @@ cat("\n=== Clustering Threshold Determination ===\n")
 
 # Load heavy chain data for threshold calculation
 cat("Loading heavy chain data for threshold calculation...\n")
-heavy_data <- read_tsv(opt$heavy_data, show_col_types = FALSE)
+all_heavy_data <- read_tsv(opt$heavy_data, show_col_types = FALSE)
 
-cat("Heavy chain sequences for threshold calculation:", nrow(heavy_data), "\n")
+# Remove cells with multiple heavy chains
+heavy_data <- all_heavy_data %>%
+  group_by(cell_id) %>%
+  mutate(n_heavy = sum(locus == "IGH")) %>%
+  filter(n_heavy == 1)
+
+cat("Heavy chain sequences for threshold calculation:", nrow(heavy_data), "after removing", nrow(all_heavy_data) - nrow(heavy_data), "cells with multiple heavy chains.\n")
 
 # Find threshold using SHazaM (used by both methods)
 cat("Computing distances with SHazaM...\n")
@@ -35,6 +41,7 @@ nn <- shazam::distToNearest(
   sequenceColumn = "junction",
   vCallColumn = "v_call",
   jCallColumn = "j_call",
+  cellIdColumn = "cell_id",
   model = "ham",
   normalize = "len",
   nproc = opt$nproc

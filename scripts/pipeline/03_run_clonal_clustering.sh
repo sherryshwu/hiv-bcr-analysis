@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=bcr_full_pipeline
+#SBATCH --job-name=run-clonal-clustering
 #SBATCH --mem=32g
-#SBATCH --time=24:00:00
+#SBATCH --time=72:00:00
 #SBATCH --mail-type=END,FAIL
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=16
@@ -90,7 +90,8 @@ Rscript scripts/02_clonal_analysis/run_scoper_clonal_clustering.R \
     --threshold_file "$THRESHOLD_FILE" \
     --outdir "$SCOPER_DIR" \
     --nproc 16 \
-    --germline_dir "$GERMLINE_DB"
+    --germline_dir "$GERMLINE_DB" \
+    --split_light TRUE
 
 echo "=== Pipeline Part I Complete at $(date) ==="
 echo "Results saved to:"

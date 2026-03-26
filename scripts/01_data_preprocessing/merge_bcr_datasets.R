@@ -11,9 +11,9 @@ suppressMessages({
 })
 
 option_list <- list(
-  make_option(c("-o", "--outdir"), type = "character", default = "data/processed/combined_datasets",
+  make_option(c("-o", "--outdir"), type = "character", default = "data/processed/03_combined_datasets",
               help = "Output directory [default= %default]"),
-  make_option(c("--use_igblast"), action = "store_true", default = FALSE,
+  make_option(c("--use_igblast"), action = "store_true", default = TRUE,
               help = "Use IgBLAST annotations for sorted/cultured data [default= %default]")
 )
 opt <- parse_args(OptionParser(option_list = option_list))
@@ -111,9 +111,10 @@ if (opt$use_igblast) {
     left_join(mapping, by = "igblast_id") %>%
     mutate(
       # Restore original sequence_id
-      sequence_id = paste(sequence_id_original, locus, row_number(), sep = "_"),
-      prefix = str_extract(sequence_id_original, "^[^_]+"),
-      suffix = str_extract(sequence_id_original, "[^_]+$"),
+      sequence_id = str_remove(sequence_id_original, "_+$"),
+      # sequence_id = paste(sequence_id, locus, row_number(), sep = "_"),
+      prefix = str_extract(sequence_id, "^[^_]+"),
+      suffix = str_extract(sequence_id, "[^_]+$"),
       # Create new sequence_id using IgBLAST locus
       sequence_id = paste(prefix, locus, suffix, sep = "_"),
       # Create cell_id
