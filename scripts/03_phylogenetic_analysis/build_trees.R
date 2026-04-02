@@ -120,7 +120,7 @@ for (i in seq_len(nrow(trees))) {
   # Plot by timepoint
   p[[i]] <- ggtree(tree) %<+% plot_data +
     geom_treescale(x = 0, y = -8, width = 0.05, fontsize = 3, linesize = 0.5) +
-    geom_tippoint(aes(color = "black", fill = time, shape = source), size = 1.5) +
+    geom_tippoint(aes(fill = time, shape = source), size = 1.5) +
     geom_tiplab(aes(label = label),
                 data = td_filter(grepl(search_regex, label)),
                 size = 3,
@@ -132,8 +132,7 @@ for (i in seq_len(nrow(trees))) {
     ggtitle(paste("Clone", "-", trees$clone_id[i])) +
     theme(legend.text = element_text(size = 10)) +
     guides(shape = guide_legend(title = "source"),
-           color = guide_legend(title = "sample time"),
-           fill  = guide_legend(title = "sample time"))
+           fill = guide_legend(title = "sample time", override.aes = list(shape = 21, color = "transparent")))
 }
 pdf(file.path(opt$outdir, paste0("genetic_distance_trees_with_label_", opt$partition, ".pdf")),
     width = 8, height = 10)
