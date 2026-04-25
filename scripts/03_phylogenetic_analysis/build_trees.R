@@ -141,20 +141,3 @@ for (i in seq_along(p)) {
 }
 dev.off()
 cat("\nDone! Check", opt$outdir, "for results\n")
-
-# subset(dat, sequence_id == "SM78_IGH_C02")$clone_id
-
-# for (i in 1:nrow(clones)) {
-#   # Access the specific airrClone object in row i
-#   current_clone_obj <- clones[i, ]
-
-#   # Check if the sequence ID is in that specific clone's data slot
-#   if ("SM78_IGH_C02" %in% current_clone_obj$data[[1]]@data$sequence_id) {
-#     print(paste("Found SM78_IGH_C02 in row:", i))
-#     print(paste("Clone ID is:", current_clone_obj$clone_id))
-#   }
-# }
-# dat %>% filter(grepl("SM78_IG._C02", sequence_id)) %>% select(sequence_id, cell_id, clone_id)
-# dat %>% filter(clone_id == 36344) %>% group_by(junction_length) %>% summarize(n())
-# dat %>% filter(sequence_id == "SM78_IGH_C02") %>% pull(junction_length)
-# dat %>% filter(sequence_id == "SM78_IGL_C02") %>% pull(junction_length)
