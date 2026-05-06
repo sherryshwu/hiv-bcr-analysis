@@ -5,6 +5,7 @@ suppressMessages({
   library(scoper)
   library(dowser)
   library(optparse)
+  library(airr)
 })
 
 option_list <- list(
@@ -204,7 +205,7 @@ tryCatch({
     clone = clone_id_value,
     trim_lengths = TRUE
   )
-  write_csv(germlines, file.path(opt$outdir, paste0("scoper_germlines_", suffix, ".csv")))
+  write_rearrangement(germlines, file.path(opt$outdir, paste0("scoper_germlines_", suffix, ".tsv")))
 }, error = function(e) {
   cat("Warning: Germline creation failed for split_light =", split_light, ":", e$message, "\n")
 })

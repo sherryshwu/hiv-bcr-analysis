@@ -4,6 +4,7 @@ suppressMessages({
   library(readr)
   library(ggplot2)
   library(optparse)
+  library(airr)
 })
 
 option_list <- list(
@@ -18,7 +19,7 @@ dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
 
 #--------------- Clonal assignments for cultured and sorted cells ---------------#
 # Which clones are cultured and sorted cells assigned to?
-no_split_data <- read_csv(file.path(opt$indir, "scoper_germlines_split_light.csv"), show_col_types = FALSE)
+split_data <- read_csv(file.path(opt$indir, "scoper_germlines_split_light.tsv"), show_col_types = FALSE)
 cat("\n=== CULTURED AND SORTED CELL CLONE ASSIGNMENTS ===\n")
 extract_targeted_clones <- function(df, mode_label, outdir) {
   # Identify clone IDs containing cultured and sorted samples
@@ -40,7 +41,7 @@ extract_targeted_clones <- function(df, mode_label, outdir) {
 }
 
 # Extract inputs
-res <- extract_targeted_clones(df = no_split_data, mode_label = "split_light", outdir = opt$outdir)
+res <- extract_targeted_clones(df = split_data, mode_label = "split_light", outdir = opt$outdir)
 targeted_clone_ids <- res$clone_ids %>% pull(clone_id)
 
 cat("Targeted clones (C02 and G11) clone assignments (with split_light):\n")
@@ -55,7 +56,7 @@ cat("\n=== SAVING CLONE IDs FOR TREE BUILDING ===\n")
 writeLines(as.character(targeted_clone_ids), file.path(opt$outdir, "targeted_clone_ids_split_light.txt"))
 
 # Save as CSV with metadata
-summary_info <- no_split_data %>%
+summary_info <- split_data %>%
   filter(clone_id %in% targeted_clone_ids) %>%
   group_by(clone_id) %>%
   summarise(
