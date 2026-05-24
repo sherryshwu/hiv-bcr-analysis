@@ -19,7 +19,7 @@ dir.create(opt$outdir, recursive = TRUE, showWarnings = FALSE)
 
 #--------------- Clonal assignments for cultured and sorted cells ---------------#
 # Which clones are cultured and sorted cells assigned to?
-split_data <- read_csv(file.path(opt$indir, "scoper_germlines_split_light.tsv"), show_col_types = FALSE)
+split_data <- read_rearrangement(file.path(opt$indir, "scoper_germlines_split_light.tsv"), show_col_types = FALSE)
 cat("\n=== CULTURED AND SORTED CELL CLONE ASSIGNMENTS ===\n")
 extract_targeted_clones <- function(df, mode_label, outdir) {
   # Identify clone IDs containing cultured and sorted samples
