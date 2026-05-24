@@ -1,17 +1,13 @@
-**Single-cell and bulk BCR repertoire analysis pipeline for longitudinal HIV data**
+# Single-cell and bulk BCR repertoire analysis pipeline for longitudinal HIV data
 
 We developed a reproducible bioinformatics pipeline for processing, integrating, and analyzing B-cell receptor (BCR) sequencing data used in the study:
 
 > **Autologous Antibodies Targeting the Silent Face of HIV Envelope Exert Potent Virologic Control**  
 > Chun et al., *Nature Medicine* (2026, Submitted)
 
----
-
 ## Overview
 
 The pipeline seeks to investigate autologous antibody responses targeting the HIV envelope silent face harmonizing **bulk BCR**, **10x Genomics single-cell**, and **sorted/cultured B cell** datasets within the Immcantation framework.
-
----
 
 ## Data Availability
 
@@ -19,22 +15,18 @@ The processed datasets used in this study are publicly available at:
 
 **Zenodo:** [https://zenodo.org/records/20045799](https://zenodo.org/records/20045799)
 
----
+## Methods
 
-# Methods
-
-- **Gene Annotation**: We identified V and J gene segments using **IgBLAST** (v1.22.0) against the IMGT germline database
+- **Gene Annotation**: We identified V and J gene segments using IgBLAST v1.22.0 against the IMGT germline database
 - **Clonal Clustering**:
   - Sequences were grouped by shared V gene, J gene, and junction length
-  - Optimal clustering threshold was determined using the `findThreshold` function from **Shazam** v1.3.1 on length-normalized Hamming distances
-  - Clonal assignment was performed with single-linkage hierarchical clustering via `hierarchicalClones` from **SCOPer** v1.4.0
-  - Clones were further refined by splitting those with mismatched light chain (LC) V/J genes and resolving LC pairing using **Dowser** v2.4.1
+  - Optimal clustering threshold was determined using the `findThreshold` function from SHazaM v1.3.1 on length-normalized Hamming distances
+  - Clonal assignment was performed with single-linkage hierarchical clustering via `hierarchicalClones` from SCOPer v1.4.0
+  - Clones were further refined by splitting those with mismatched light chain (LC) V/J genes and resolving LC pairing using Dowser v2.4.1
 - **Phylogenetic Analysis** (C02 and G11 lineages):
-  - Trees were inferred using **Dowser** v2.4.1 and **IgPhyML** v2.0.0 with separate HC/LC partitions (HLP19 model)
+  - Trees were inferred using Dowser v2.4.1 and IgPhyML v2.0.0 with separate HC/LC partitions (HLP19 model)
   - Evolutionary rate (mutations/codon/day) was calculated as the slope of genetic divergence vs. sample time
-  - Significance was assessed via date randomization test (10,000 permutations) in **Dowser** v2.4.1
-
----
+  - Significance was assessed via date randomization test (10,000 permutations) in Dowser v2.4.1
 
 ## Repository Structure
 
@@ -51,7 +43,7 @@ hiv-bcr-analysis/
 
 ## Pipeline Stages
 1. IgBLAST Annotation (`01_run_igblast.sh`)
-- Annotates sorted and cultured B-cell sequences using `IgBLAST`
+- Annotates sorted and cultured B-cell sequences
 
 2. Dataset Merging & Preprocessing (`02_run_preprocessing.sh`)
 - Integrates bulk BCR, 10x single-cell, and sorted/cultured data into standardized AIRR format
@@ -61,8 +53,6 @@ hiv-bcr-analysis/
 
 4. Phylogenetic & Mutational Analysis (`04_run_phylogenetics.sh`)
 - Builds lineage trees for C02/G11 lineages, calculates evolutionary rates, and runs date randomization tests.
-
----
 
 ## Usage
 
@@ -74,7 +64,6 @@ sbatch scripts/pipeline/02_run_preprocessing.sh
 sbatch scripts/pipeline/03_run_clonal_clustering.sh
 sbatch scripts/pipeline/04_run_phylogenetics.sh
 ```
----
 
 ## Citation
 
